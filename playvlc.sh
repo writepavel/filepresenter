@@ -5,36 +5,27 @@ LOGFILE=/tmp/playvlc.log
 # Usage info
 show_help() {
 cat << EOF
-Usage: ${0##*/} [-h] [-v] [-m] [-r] VIDEOFILE [ - | START_TIME ] [END_TIME]
-
+Usage: ${0##*/} [-h] [-v] [-m] [-r - | REPEAT_COUNT] VIDEOFILE [ - | START_TIME ] [END_TIME]
 Plays video by single VLC with specified timeframe in seconds. By default this script closes all other VLC instances.
 Time format: SS or MM:SS or HH:MM:SS. Where SS - number of seconds, MM - number of minutes, HH - number of hours.
-
-    -h              display this help and exit
-    -v              Verbose mode. Prints log to ${LOGFILE} file.
-    -m              Allow multiple VLC instances and do not close other ones before playing video.
-    -r              Repeat selected video playing.
-    VIDEOFILE       Required. Video to be played.
-    START_TIME      See time format above to specify playback start. Use "-" if you want to omit this parameter and specify end_time only.
-    END_TIME        Optional. If Empty, video will be played to the end.
-
+    -h               Display this help and exit
+    -v               Verbose mode. Prints log to ${LOGFILE} file.
+    -m               Allow multiple VLC instances and do not close other ones before playing video.
+    -r REPEAT_COUNT  Repeat selected video for REPEAT_COUNT times. For infinite repeat use "-" as REPEAT_COUNT.
+    VIDEOFILE        Required. Video to be played.
+    START_TIME       See time format above to specify playback start. Use "-" if you want to omit this parameter and specify end_time only.
+    END_TIME         Optional. If Empty, video will be played to the end.
 EXAMPLES:
-
 To play the whole video, use the VIDEOFILE parameter only:
    playvlc video.mp4
-
 To play video.mp4 from the 2nd minute and 12th second to the end if file. Just omit END_TIME parameter:
    playvlc video.mp4 2:12
-
 To play video.mp4 from the beginning to 1st hour, 20th minute and 15th second, you can use "-" as START_TIME parameter:
    playvlc video.mp4 - 1:20:15
-
-To play video.mp4 from 25th to 120th second:
-   playvlc video.mp4 25 120
-
+To play video.mp4 from 25th to 120th second and repeat it 3 times:
+   playvlc -r 3 video.mp4 25 120
 To see log file updates:
    tail -f ${LOGFILE}
-
 EOF
 }
 
@@ -43,10 +34,10 @@ NO="no"
 
 verbose_mode=$NO
 allow_multiple_instances=$NO
-repeat_play=$NO
+repeat_count=""
 OPTIND=1
 
-while getopts "hvmr" opt; do
+while getopts "hvmr:" opt; do
     case $opt in
         h)
             show_help
@@ -59,7 +50,7 @@ while getopts "hvmr" opt; do
             allow_multiple_instances=$YES
             ;;
         r)
-            repeat_play=$YES
+            repeat_count=$OPTARG
             ;;
         *)
             show_help >&2
@@ -76,6 +67,12 @@ VIDEOFILE=$1
 start_time=$2
 end_time=$3
 
+
+if [[ ! $repeat_count =~ ^[1-9][0-9]*$ ]] && [[ ! $repeat_count == "-" ]] && [[ -n "$repeat_count" ]]; then
+    printf "REPEAT_COUNT not recognized. Use either a positive number or '-' for endless repeat. But entered: ${repeat_count}\n\n"
+    show_help >&2
+    exit 1
+fi
 
 if [ ! -f $VIDEOFILE ]; then
     printf "Video file not found here: ${VIDEOFILE} \n\n"
@@ -121,13 +118,13 @@ calc_seconds ()
     minutes=0
     seconds=0
     if [ $colons == 0 ]; then
-        seconds=$input
+        seconds=`echo -n "$input" | sed 's/^0*//'`
     else
         awk_string=`echo -n "$input" | sed 's/:/ /g'`
     fi
     if [ $colons == 1 ]; then
-        minutes=`echo -n "$awk_string" | awk '{print $1}'`
-        seconds=`echo -n "$awk_string" | awk '{print $2}'`
+        minutes=`echo -n "$awk_string" | awk '{print $1}' | sed 's/^0*//'`
+        seconds=`echo -n "$awk_string" | awk '{print $2}' | sed 's/^0*//'`
         seconds=$((seconds + minutes*60))
     fi
     if [ $colons == 2 ]; then
@@ -196,9 +193,16 @@ set_vlc_params() {
         exit 1;
     fi
 
-    if [[ $repeat_play == $YES ]]; then
+    if [[ "$repeat_count" == "-" ]]; then
+        logstring="$logstring | infinite play loop"
         VLC_PARAMS="$VLC_PARAMS --repeat"
+
+    elif [[ -n "$repeat_count" ]]; then
+        logstring="$logstring | repeat $repeat_count times"
+        VLC_PARAMS="$VLC_PARAMS --input-repeat $((repeat_count - 1))"
+
     else
+        logstring="$logstring | no repeat"
         VLC_PARAMS="$VLC_PARAMS --no-repeat"
     fi
 }
@@ -207,5 +211,4 @@ setup_play_timeframe
 set_vlc_params
 stop_all_vlc
 tolog "${logstring}"
-`get_vlc_command` --fullscreen --play-and-exit --no-loop $VLC_PARAMS $VIDEOFILE &
-
+`get_vlc_command` --fullscreen --playlist-autostart --play-and-exit --no-loop $VLC_PARAMS $VIDEOFILE &
