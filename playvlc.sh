@@ -6,8 +6,10 @@ LOGFILE=/tmp/playvlc.log
 show_help() {
 cat << EOF
 Usage: ${0##*/} [-h] [-v] [-m] [-r - | REPEAT_COUNT] VIDEOFILE [ - | START_TIME ] [END_TIME]
+
 Plays video by single VLC with specified timeframe in seconds. By default this script closes all other VLC instances.
 Time format: SS or MM:SS or HH:MM:SS. Where SS - number of seconds, MM - number of minutes, HH - number of hours.
+
     -h               Display this help and exit
     -v               Verbose mode. Prints log to ${LOGFILE} file.
     -m               Allow multiple VLC instances and do not close other ones before playing video.
@@ -15,15 +17,20 @@ Time format: SS or MM:SS or HH:MM:SS. Where SS - number of seconds, MM - number 
     VIDEOFILE        Required. Video to be played.
     START_TIME       See time format above to specify playback start. Use "-" if you want to omit this parameter and specify end_time only.
     END_TIME         Optional. If Empty, video will be played to the end.
+
 EXAMPLES:
 To play the whole video, use the VIDEOFILE parameter only:
    playvlc video.mp4
+
 To play video.mp4 from the 2nd minute and 12th second to the end if file. Just omit END_TIME parameter:
    playvlc video.mp4 2:12
+
 To play video.mp4 from the beginning to 1st hour, 20th minute and 15th second, you can use "-" as START_TIME parameter:
    playvlc video.mp4 - 1:20:15
+
 To play video.mp4 from 25th to 120th second and repeat it 3 times:
    playvlc -r 3 video.mp4 25 120
+
 To see log file updates:
    tail -f ${LOGFILE}
 EOF
@@ -128,9 +135,9 @@ calc_seconds ()
         seconds=$((seconds + minutes*60))
     fi
     if [ $colons == 2 ]; then
-        hours=`echo -n "$awk_string" | awk '{print $1}'`
-        minutes=`echo -n "$awk_string" | awk '{print $2}'`
-        seconds=`echo -n "$awk_string" | awk '{print $3}'`
+        hours=`echo -n "$awk_string" | awk '{print $1}' | sed 's/^0*//'`
+        minutes=`echo -n "$awk_string" | awk '{print $2}' | sed 's/^0*//'`
+        seconds=`echo -n "$awk_string" | awk '{print $3}' | sed 's/^0*//'`
         seconds=$((seconds + minutes*60 + hours*3600))
     fi
     echo $seconds
