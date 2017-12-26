@@ -43,8 +43,6 @@ verbose_mode=$NO
 allow_multiple_instances=$NO
 repeat_count=""
 OPTIND=1
-SAVEIFS=$IFS
-IFS=$(echo -en "\n\b")
 
 while getopts "hvmr:" opt; do
     case $opt in
@@ -220,6 +218,11 @@ setup_play_timeframe
 set_vlc_params
 stop_all_vlc
 tolog "${logstring}"
+
+SAVEIFS=$IFS
+IFS=$(echo -en "\n\b")
+
 `get_vlc_command` --fullscreen --playlist-autostart --play-and-exit --no-loop $VLC_PARAMS $VIDEOFILE &
+
 IFS=$SAVEIFS
 
